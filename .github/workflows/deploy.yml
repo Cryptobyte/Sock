@@ -27,6 +27,7 @@ jobs:
         uses: lando/pkg-action@v2
         with:
           entrypoint: index.js
+          config: package.json
           arch: ${{ matrix.arch }}
           node-version: ${{ matrix.node-version }}
           os: ${{ matrix.os }}
