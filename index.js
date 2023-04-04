@@ -1,11 +1,15 @@
 const ws = require('ws');
+const fs = require('fs');
 const arg = require('arg');
 const colors = require('colors');
 const readline = require('readline');
 const colorize = require('json-colorizer');
+const path = require('path');
 
 const args = arg({
-	'--server': String
+	'--server': String,
+  '--reconnect': Boolean,
+  '--run': String
 });
 
 if (!args['--server']) {
@@ -14,51 +18,93 @@ if (!args['--server']) {
 }
 
 const server = args['--server'];
+const reconnect = args['--reconnect'];
 
 console.user    = (data) => console.log(`${colors.white('<')} ${colors.blue(data)}`)
 console.server  = (data) => console.log(`${colors.white('>')} ${colors.green(data)}`);
 console.program = (data) => console.log(`${colors.white('~')} ${colors.gray(data)}`);
 
+let wsc;
 let buffer = '';
+let reconnecting = false;
+
+const runActions = (event) => {
+  const filePath = path.join(__dirname, args['--run']);
+
+  if (!fs.existsSync(filePath)) return;
+
+  const file = require(filePath);
+
+  if (!file[event]) return;
+
+  for (const action of file[event]) {
+    console.user(action);
+    wsc.send(action);
+  }
+};
+
+const connect = () => {
+  wsc = new ws.WebSocket(server);
+  
+  wsc.on('open', () => {
+    console.program(`Connected!`);
+    reconnecting = false;
+
+    if (args['--run']) {
+      runActions('open');
+    }
+  });
+  
+  wsc.on('close', (code, reason) => {
+    if (!reconnecting) {
+      console.program(`Connection has been closed! ${reason.toString() || 'Unknown Reason'} [${code}]`);
+    }
+
+    if (reconnect) {
+      reconnecting = true;
+      connect();
+    }
+  });
+  
+  wsc.on('error', (err) => {
+    if (!reconnecting) {
+      console.program(`Connection error has occured!`, err);
+    }
+  });
+  
+  wsc.on('message', (data, _) => {
+    const string = data.toString();
+    
+    let json;
+    try {
+      json = JSON.parse(string);
+  
+    } catch { }
+  
+    if (json) {
+      console.server('JSON');
+      console.log(colorize(JSON.stringify(json, null, 2)));
+  
+    } else {
+      console.server(string);
+    }
+
+    if (args['--run']) {
+      runActions('message');
+    }
+  });
+  
+  wsc.on('unexpected-response', (req, res) => {
+    console.program(`Connection has given an unexpected response!`);
+
+    if (args['--run']) {
+      runActions('unexpected-response');
+    }
+  });
+};
 
 console.program(`Connecting to ${server} ..`);
-const wsc = new ws.WebSocket(server);
-
-wsc.on('open', () => {
-  console.program(`Connected!`);
-});
-
-wsc.on('close', (code, reason) => {
-  console.program(`Connection has been closed!`);
-  console.program(`${code} ${reason.toString() || 'Unknown Reason'}`);
-  process.exit(1);
-});
-
-wsc.on('error', (err) => {
-  console.program(`Connection error has occured!`, err);
-});
-
-wsc.on('message', (data, _) => {
-  const string = data.toString();
-  
-  let json;
-  try {
-    json = JSON.parse(string);
-
-  } catch { }
-
-  if (json) {
-    console.server('Server Message:');
-    console.log(colorize(JSON.stringify(json, null, 2)));
-
-  } else {
-    console.server(string);
-  }
-});
-
-wsc.on('unexpected-response', (req, res) => {
-  console.program(`Connection has given an unexpected response!`);
-});
+connect();
 
 readline.emitKeypressEvents(process.stdin);
 

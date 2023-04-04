@@ -3,11 +3,6 @@
   "version": "0.0.1",
   "description": "WebSocket Tester",
   "main": "index.js",
-  "scripts": {
-    "build:win": "pkg index.js -o bin\\sock.exe",
-    "build:nix": "pkg index.js -o bin/sock",
-    "build:macOS": "pkg index.js -o bin/sock"
-  },
   "keywords": [
     "websocket",
     "test",
