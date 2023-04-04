@@ -12,3 +12,9 @@ Sock is a terminal software that allows you to connect to a WebSocket, send and 
 ```
 node index.js --server ws://localhost:3001
 ```
+
+## Using Binaries
+```
+sudo cp bin/sock /usr/local/bin/sock
+sock --server ws://localhost:3001
+```
